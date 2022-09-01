@@ -1,0 +1,850 @@
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\OperatorTok{\%}\NormalTok{matplotlib inline}
+
+\ImportTok{from}\NormalTok{ qutip }\ImportTok{import} \OperatorTok{*}
+\ImportTok{from}\NormalTok{ math }\ImportTok{import} \OperatorTok{*}
+
+\ImportTok{import}\NormalTok{ matplotlib.pyplot }\ImportTok{as}\NormalTok{ plt}
+\ImportTok{import}\NormalTok{ numpy }\ImportTok{as}\NormalTok{ np}
+
+\ImportTok{from}\NormalTok{ IPython.display }\ImportTok{import}\NormalTok{ Image}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{model-for-two-driven-directly-coupled-qubits}{%
+\section{Model for two driven directly coupled
+qubits}\label{model-for-two-driven-directly-coupled-qubits}}
+
+In the notebook I will demonstrate a simulation of two qubits using a
+time dependant hamiltonian. Starting with a series of gates that will go
+back and forth to \(|0\rangle\) to demonstrate the 1 qubit gates.
+
+Ending with another NOT gate on qubit 2, a Hadamard on qubit 1 and, the
+2 qubit gate with a simple coupling, a CNOT2,1 (NOT on 2 controlled by
+1). To get to finally the cat state:
+\(|\Psi\rangle=\frac{1}{\sqrt 2}|01\rangle + \frac{1}{\sqrt 2}|10\rangle\)
+
+Based on:
+\url{https://nbviewer.ipython.org/github/jrjohansson/qutip-lectures/blob/master/Lecture-2A-Cavity-Qubit-Gates.ipynb}
+
+\hypertarget{constants}{%
+\subsection{Constants}\label{constants}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{w1 }\OperatorTok{=} \FloatTok{3.0} \OperatorTok{*} \DecValTok{2} \OperatorTok{*}\NormalTok{ pi }\CommentTok{\#qubit 1 angular freq}
+\NormalTok{w2 }\OperatorTok{=} \FloatTok{2.0} \OperatorTok{*} \DecValTok{2} \OperatorTok{*}\NormalTok{ pi }\CommentTok{\#qubit 2 angular freq}
+
+\NormalTok{g }\OperatorTok{=} \FloatTok{0.01} \OperatorTok{*} \DecValTok{2} \OperatorTok{*}\NormalTok{ pi}
+
+
+\NormalTok{Omega1}\OperatorTok{=}\DecValTok{4}
+\NormalTok{Omega2}\OperatorTok{=}\DecValTok{4}
+
+\NormalTok{time\_interval}\OperatorTok{=}\DecValTok{40}
+\NormalTok{points}\OperatorTok{=}\DecValTok{1600}
+\NormalTok{pntperns}\OperatorTok{=}\NormalTok{ceil(points}\OperatorTok{/}\NormalTok{time\_interval)}
+
+\NormalTok{tlist }\OperatorTok{=}\NormalTok{ np.linspace(}\DecValTok{0}\NormalTok{, time\_interval, points)}
+
+\NormalTok{width }\OperatorTok{=} \FloatTok{0.5}
+
+\CommentTok{\#rotating wave approximation}
+\NormalTok{use\_rwa}\OperatorTok{=} \VariableTok{False}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{operators}{%
+\subsection{Operators}\label{operators}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{sm1 }\OperatorTok{=}\NormalTok{ tensor(destroy(}\DecValTok{2}\NormalTok{), qeye(}\DecValTok{2}\NormalTok{))}
+
+\NormalTok{sz1 }\OperatorTok{=}\NormalTok{ tensor(sigmaz(), qeye(}\DecValTok{2}\NormalTok{))}
+\NormalTok{sy1 }\OperatorTok{=}\NormalTok{ tensor(sigmay(), qeye(}\DecValTok{2}\NormalTok{))}
+\NormalTok{sx1 }\OperatorTok{=}\NormalTok{ tensor(sigmax(), qeye(}\DecValTok{2}\NormalTok{))}
+\NormalTok{n1 }\OperatorTok{=}\NormalTok{ sm1.dag() }\OperatorTok{*}\NormalTok{ sm1}
+
+\CommentTok{\# operators for qubit 2}
+\NormalTok{sm2 }\OperatorTok{=}\NormalTok{ tensor(qeye(}\DecValTok{2}\NormalTok{), destroy(}\DecValTok{2}\NormalTok{))}
+
+\NormalTok{sz2 }\OperatorTok{=}\NormalTok{ tensor(qeye(}\DecValTok{2}\NormalTok{), sigmaz())}
+\NormalTok{sy2 }\OperatorTok{=}\NormalTok{ tensor(qeye(}\DecValTok{2}\NormalTok{), sigmay())}
+\NormalTok{sx2 }\OperatorTok{=}\NormalTok{ tensor(qeye(}\DecValTok{2}\NormalTok{), sigmax())}
+\NormalTok{n2 }\OperatorTok{=}\NormalTok{ sm2.dag() }\OperatorTok{*}\NormalTok{ sm2}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{components-of-the-hamiltonian}{%
+\subsection{Components of the
+Hamiltonian}\label{components-of-the-hamiltonian}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Hamiltonian using QuTiP}
+
+\CommentTok{\#qubits}
+\NormalTok{H1 }\OperatorTok{=} \OperatorTok{{-}} \FloatTok{0.5} \OperatorTok{*}\NormalTok{ sz1 }\OperatorTok{*}\NormalTok{ w1}
+\NormalTok{H2 }\OperatorTok{=} \OperatorTok{{-}} \FloatTok{0.5} \OperatorTok{*}\NormalTok{ sz2 }\OperatorTok{*}\NormalTok{ w2}
+
+\CommentTok{\#qubit drives}
+\NormalTok{Hd1}\OperatorTok{=}\NormalTok{Omega1}\OperatorTok{*}\NormalTok{sy1}
+\NormalTok{Hd2}\OperatorTok{=}\NormalTok{Omega2}\OperatorTok{*}\NormalTok{sy2}
+
+\CommentTok{\#Qubit coupling hamiltonian}
+\CommentTok{\# Hamiltonian}
+\ControlFlowTok{if}\NormalTok{ use\_rwa:}
+\NormalTok{    Hqq }\OperatorTok{=} \OperatorTok{{-}}\NormalTok{g}\OperatorTok{/}\DecValTok{2} \OperatorTok{*}\NormalTok{ (sx1}\OperatorTok{*}\NormalTok{sx2}\OperatorTok{+}\NormalTok{sy1}\OperatorTok{*}\NormalTok{xy2)}
+\ControlFlowTok{else}\NormalTok{:}
+\NormalTok{    Hqq }\OperatorTok{=} \OperatorTok{{-}}\NormalTok{g }\OperatorTok{*}\NormalTok{ (sm1.dag() }\OperatorTok{{-}}\NormalTok{ sm1) }\OperatorTok{*}\NormalTok{ ( sm2.dag()}\OperatorTok{{-}}\NormalTok{sm2)}
+
+\NormalTok{H }\OperatorTok{=}\NormalTok{ H1 }\OperatorTok{+}\NormalTok{ H2 }\OperatorTok{+}\NormalTok{Hqq }\OperatorTok{+}\NormalTok{ Hd1}\OperatorTok{+}\NormalTok{Hd2}
+\end{Highlighting}
+\end{Shaded}
+
+Hamiltonian without rotating wave approximation:
+
+\[ H = \frac{\omega_1}{2} \sigma_{z1}+\frac{\omega_2}{2} \sigma_{z2} -g (\sigma_{+1}-\sigma_{-1})(\sigma_{+2}-\sigma_{-2})+V_{d1}(t)\Omega_1\sigma_{y1}+V_{d2}(t)\Omega_2\sigma_{y2}\]
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{H}
+\end{Highlighting}
+\end{Shaded}
+
+Quantum object: dims = [[2, 2], [2, 2]], shape = (4, 4), type = oper, isherm = True\begin{equation*}\left(\begin{array}{*{11}c}-15.708 & -4.0j & -4.0j & -0.063\\4.0j & -3.142 & 0.063 & -4.0j\\4.0j & 0.063 & 3.142 & -4.0j\\-0.063 & 4.0j & 4.0j & 15.708\\\end{array}\right)\end{equation*}
+
+\hypertarget{dissipation}{%
+\subsection{Dissipation}\label{dissipation}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{dissipation}\OperatorTok{=}\VariableTok{True}
+\NormalTok{gamma1 }\OperatorTok{=} \FloatTok{0.0033}
+\NormalTok{gamma2 }\OperatorTok{=} \FloatTok{0.005}
+
+\ControlFlowTok{if}\NormalTok{ dissipation:}
+\NormalTok{    c\_ops }\OperatorTok{=}\NormalTok{ [sqrt(gamma1) }\OperatorTok{*}\NormalTok{ sm1, sqrt(gamma2) }\OperatorTok{*}\NormalTok{ sm2]}
+\ControlFlowTok{else}\NormalTok{:}
+\NormalTok{    c\_ops}\OperatorTok{=}\NormalTok{[]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#unitary step function}
+\KeywordTok{def}\NormalTok{ u\_t(t):}
+    \ControlFlowTok{return} \DecValTok{1}\OperatorTok{*}\NormalTok{(t }\OperatorTok{\textgreater{}} \DecValTok{0}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+We use Krantz's "A quantum engineer's guide to superconducting qubits"
+page 28 to calculate the lenghts of the pulses. The drive appears in the
+hamiltonian at the terms for each qubit:
+
+\(H_d=V_{d}(t)\Omega\sigma_{y}\)
+
+The Drive voltage input is a sine wave with amplitude \(V_0\) angular
+frenquency \(\omega_d\), phase \(\phi\) and \(s(t)\) is a package
+envoltory that will be a rectangular function here:
+
+\(V_d(t) = V_0 s(t) \sin(\omega_d t+\phi)\)
+
+A \(V_d\) pulse with \(\omega_d\) angular frequency resonant to the
+target qubit frequency makes an unitary transformation like this:
+
+\(U=e^{-i/2\Theta(t)(I\sigma_x+Q\sigma_y)}\)
+
+Where \(I=\cos \phi\) is the in phase factor and \(Q=\sin \phi\) is the
+out of phase factor.
+
+The angle \(\Theta(t)\) which is the angle by which the qubit state is
+rotated is given by:
+
+\(\Theta(t) = -\Omega V_0 \int_0^ts(t^\prime)dt^\prime\)
+
+This equation can be used to tune the inputs like the amplitude \(V_0\)
+and the integral of the envelope \(s(t)\) which will be in our case the
+period of the rectangular function to obtain a desired angle like
+\(\pi\).
+
+By doing the drive voltage completely in phase or out of phase we get
+the following unitaries:
+
+\(U_{I=1, Q=0} = \cos(\frac{\Theta(t)}{2})+i\sin(\frac{\Theta(t)}{2})\sigma_x = (\Theta)_X\)
+
+\(U_{I=0, Q=1} = \cos(\frac{\Theta(t)}{2})+i\sin(\frac{\Theta(t)}{2})\sigma_y= (\Theta)_Y\)
+
+The in phase turns the qubit \(\Theta\) degrees on the x axis and so
+does the out of phase but on the y axis.
+
+This can then be used to make the X (in phase \(\pi\) degrees) and Y
+(out of phase \(\pi\) degrees) gates:
+
+\(X =\sigma_x = i\sigma_x= U_{I=1, Q=0, \Theta=\pi} = (\pi)_X\)
+
+\(Y =\sigma_y = i\sigma_y= U_{I=0, Q=1, \Theta=\pi} = (\pi)_Y\)
+
+The \(i\) is ignored because it's a global phase which can be ignored
+for not altering the results of measurements.
+
+The Final Pauli gate the Z gate (a rotation on the qubit's Z axis) can
+be obtained by a combination of three gates where X means in phase
+(rotation around x axis) and Y out of phase pulses:
+
+\(\theta_Z = (\pi/2)_X \theta_Y (-\pi/2)_X= (\pi/2)_X \theta_Y (3\pi/2)_X\)
+
+This equation is from:
+\url{https://www.ucl.ac.uk/quantum-spins/sites/quantum-spins/files/paper90.pdf}
+page 1516 eq2
+
+The bloch sphere below can aid in visualizing the rotations. The
+rotations follow the right hand rule with the thumb pointed to the
+positive direction in the axis:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Image(filename}\OperatorTok{=}\StringTok{\textquotesingle{}images/notebook{-}bloch{-}sphere.png\textquotesingle{}}\NormalTok{) }
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/08f2b67db2e3f0a14310fb99aa2bce1ca00f6de2.png}
+
+\hypertarget{gates-pulses}{%
+\subsection{Gate's pulses}\label{gates-pulses}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+
+
+\CommentTok{\#see krantz page 28 eq93 to calculate the lenghts of the pulses}
+\CommentTok{\#for s(t) being a retangular function}
+\CommentTok{\#Theta(t) = {-} Omega * V\_0 * T\_s}
+
+\CommentTok{\#single qubit X/NOT gate pulse}
+\CommentTok{\#V0 is the amplitude}
+\CommentTok{\#T0 is the start of the signal}
+\CommentTok{\#Omega is the constant of the drive interaction given for each qubit}
+\CommentTok{\#wd is the qubit angular frequency}
+\CommentTok{\#theta is the angle desired}
+\KeywordTok{def}\NormalTok{ X\_t(t ,V0 ,T0, Omega, wd,theta):}
+\NormalTok{    T\_s}\OperatorTok{=}\NormalTok{theta}\OperatorTok{/}\NormalTok{Omega}\OperatorTok{/}\NormalTok{V0}
+    \ControlFlowTok{return}\NormalTok{ V0}\OperatorTok{*}\NormalTok{(u\_t(t}\OperatorTok{{-}}\NormalTok{T0)}\OperatorTok{{-}}\NormalTok{u\_t(t}\OperatorTok{{-}}\NormalTok{T0}\OperatorTok{{-}}\NormalTok{T\_s))}\OperatorTok{*}\NormalTok{sin(wd}\OperatorTok{*}\NormalTok{t)}
+
+\CommentTok{\#single qubit Y gate pulse}
+\KeywordTok{def}\NormalTok{ Y\_t(t ,V0 ,T0, Omega, wd,theta):}
+\NormalTok{    T\_s}\OperatorTok{=}\NormalTok{theta}\OperatorTok{/}\NormalTok{Omega}\OperatorTok{/}\NormalTok{V0}
+    \ControlFlowTok{return}\NormalTok{ V0}\OperatorTok{*}\NormalTok{(u\_t(t}\OperatorTok{{-}}\NormalTok{T0)}\OperatorTok{{-}}\NormalTok{u\_t(t}\OperatorTok{{-}}\NormalTok{T0}\OperatorTok{{-}}\NormalTok{T\_s))}\OperatorTok{*}\NormalTok{sin(wd}\OperatorTok{*}\NormalTok{t}\OperatorTok{+}\NormalTok{pi}\OperatorTok{/}\DecValTok{2}\NormalTok{)}
+
+\CommentTok{\#single qubit Zpi/2 gate}
+\CommentTok{\# H = X\_pi/2 * Y\_pi/2* X3pi/2}
+\KeywordTok{def}\NormalTok{ Z\_t(t ,V0 ,T0, Omega, wd, theta):}
+\NormalTok{    T\_sx}\OperatorTok{=}\DecValTok{3}\OperatorTok{*}\NormalTok{pi}\OperatorTok{/}\DecValTok{2}\OperatorTok{/}\NormalTok{Omega}\OperatorTok{/}\NormalTok{V0}
+\NormalTok{    T\_sy}\OperatorTok{=}\NormalTok{theta}\OperatorTok{/}\NormalTok{Omega}\OperatorTok{/}\NormalTok{V0}
+    \ControlFlowTok{return}\NormalTok{ X\_t(t ,V0 ,T0, Omega, wd, }\DecValTok{3}\OperatorTok{*}\NormalTok{pi}\OperatorTok{/}\DecValTok{2}\NormalTok{)}\OperatorTok{+}\NormalTok{ Y\_t(t ,V0 ,T0}\OperatorTok{+}\FloatTok{1.1}\OperatorTok{*}\NormalTok{T\_sx, Omega, wd, theta)}\OperatorTok{+}\NormalTok{X\_t(t ,V0 ,T0}\OperatorTok{+}\FloatTok{1.1}\OperatorTok{*}\NormalTok{(T\_sx}\OperatorTok{+}\NormalTok{T\_sy), Omega, wd, pi}\OperatorTok{/}\DecValTok{2}\NormalTok{)}
+
+\CommentTok{\#single qubit Hadamard gate}
+\CommentTok{\# H = X\_pi * Y\_pi/2}
+\KeywordTok{def}\NormalTok{ Had\_t(t ,V0 ,T0, Omega, wd):}
+\NormalTok{    T\_sx}\OperatorTok{=}\NormalTok{pi}\OperatorTok{/}\DecValTok{1}\OperatorTok{/}\NormalTok{Omega}\OperatorTok{/}\NormalTok{V0}
+    \ControlFlowTok{return}\NormalTok{ X\_t(t ,V0 ,T0, Omega, wd, pi)}\OperatorTok{+}\NormalTok{ Y\_t(t ,V0 ,T0}\OperatorTok{+}\FloatTok{1.2}\OperatorTok{*}\NormalTok{T\_sx, Omega, wd, pi}\OperatorTok{/}\DecValTok{2}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+This function displays the expected values of the qubits:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+ \KeywordTok{def}\NormalTok{ single\_qubit\_graph(res, timelist):}
+\NormalTok{    fig, axes }\OperatorTok{=}\NormalTok{ plt.subplots(}\DecValTok{1}\NormalTok{, }\DecValTok{1}\NormalTok{, sharex}\OperatorTok{=}\VariableTok{True}\NormalTok{, figsize}\OperatorTok{=}\NormalTok{(}\DecValTok{10}\NormalTok{,}\DecValTok{4}\NormalTok{))}
+
+\NormalTok{    axes.plot(timelist, np.real(expect(n1, res.states)), }\StringTok{\textquotesingle{}b\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit 1"}\NormalTok{)}
+\NormalTok{    axes.plot(timelist, np.real(expect(n2, res.states)), }\StringTok{\textquotesingle{}g\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit 2"}\NormalTok{)}
+\NormalTok{    axes.set\_ylim(}\DecValTok{0}\NormalTok{, }\FloatTok{1.5}\NormalTok{)}
+    \CommentTok{\#axes.set\_xlim(0,100)}
+
+\NormalTok{    axes.set\_xlabel(}\StringTok{"Time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{    axes.set\_ylabel(}\StringTok{"Occupation probability"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{    axes.legend()}
+
+\NormalTok{    fig.tight\_layout()}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{single-qubit-demonstrative-operations}{%
+\subsection{Single qubit demonstrative
+operations}\label{single-qubit-demonstrative-operations}}
+
+We prepare our initial state with Qubit 1 in a superposition to make a
+cat state and qubit two in \(|0\rangle\)
+
+Qubit 1: \(H|0\rangle =1/\sqrt 2| 0 \rangle +1/\sqrt 2 | 1 \rangle\)
+
+Qubit 2: \(X X H Z H |0\rangle = X|1\rangle = |0\rangle\)
+
+The process on qubit two serves to demostrate the importance of the
+phase of the qubit. After applying Z the superposition is changed to
+\(|Q_2\rangle = 1/\sqrt 2|0\rangle - 1/\sqrt 2|1\rangle\)
+
+When applying the Hadamard instead of \(|0\rangle\) that we would get
+from the state of Qubit 1 by reapplying a Hadamard gate ,which is an
+involutory operator \(H=H^{-1}\) and \(HH|0\rangle = |0\rangle\). We get
+\(|1\rangle\). The X operator reverses all that traformation back to
+\(|0\rangle\) and then another X back to \(|1\rangle\) and are there to
+show another operation as well.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#qubit 1 drive}
+\KeywordTok{def}\NormalTok{ wd1\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+    \ControlFlowTok{return}\NormalTok{ Had\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{23}\NormalTok{,Omega1,w1)}
+
+\CommentTok{\#qubit 2 drive}
+\KeywordTok{def}\NormalTok{ wd2\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+    \ControlFlowTok{return}\NormalTok{ Had\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{0}\NormalTok{,Omega2,w2) }\OperatorTok{+}\NormalTok{ Z\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{5}\NormalTok{,Omega2,w2,pi) }\OperatorTok{+}\NormalTok{Had\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{15}\NormalTok{,Omega2,w2)}\OperatorTok{+}\NormalTok{ X\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{21}\NormalTok{,Omega2,w2,pi)}\OperatorTok{+}\NormalTok{ X\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{25}\NormalTok{,Omega2,w2,pi)}
+ 
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{fig, axes }\OperatorTok{=}\NormalTok{ plt.subplots(}\DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, figsize}\OperatorTok{=}\NormalTok{(}\DecValTok{10}\NormalTok{,}\DecValTok{4}\NormalTok{))}
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].plot(tlist, [wd1\_t(t) }\ControlFlowTok{for}\NormalTok{ t }\KeywordTok{in}\NormalTok{ tlist], }\StringTok{\textquotesingle{}b\textquotesingle{}}\NormalTok{, label}\OperatorTok{=}\StringTok{"drive qubit1"}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].plot(tlist, [wd2\_t(t) }\ControlFlowTok{for}\NormalTok{ t }\KeywordTok{in}\NormalTok{ tlist], }\StringTok{\textquotesingle{}g\textquotesingle{}}\NormalTok{, label}\OperatorTok{=}\StringTok{"drive qubit2"}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].set\_ylim(}\OperatorTok{{-}}\FloatTok{0.5}\NormalTok{,}\FloatTok{0.5}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].set\_xlim(}\DecValTok{0}\NormalTok{,}\DecValTok{30}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].set\_ylim(}\OperatorTok{{-}}\FloatTok{0.5}\NormalTok{,}\FloatTok{0.5}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].set\_xlim(}\DecValTok{0}\NormalTok{,}\DecValTok{30}\NormalTok{)}
+
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].set\_xlabel(}\StringTok{"Time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].set\_ylabel(}\StringTok{"Vd Signal Qubit 1"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].set\_xlabel(}\StringTok{"Time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].set\_ylabel(}\StringTok{"Vd Signal Qubit 2"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+
+
+
+\NormalTok{fig.tight\_layout()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/5d3ef56fc293ec90531016fe6147a41c38d783d0.png}
+
+Here we can see the many pulses on each qubit as a function of time. You
+can notice when there is a shift in the phase of the waves in the
+pulses. This means the pulse switched in or out of phase with the qubit,
+a X type of pulse or a Y type. The qubit 1 got only a Hadamard gate made
+out of two pulses and the qubit 2 got many pulses comprising many gates.
+
+Time evolution explained at:
+\url{https://nbviewer.ipython.org/github/qutip/qutip-notebooks/blob/master/examples/landau-zener.ipynb}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+
+\CommentTok{\# method 2: a function callback that returns the coefficient for a qobj}
+    \CommentTok{\#H = [H0, [H1, lambda x,y: x]]}
+    \CommentTok{\#output = mesolve(H, psi0, tlist, c\_op\_list, [sm.dag() * sm], \{\})  }
+
+\CommentTok{\#This will multiply Hd1 and Hd2 by the time dependant step functions like wd1\_t during the mesolve step}
+\NormalTok{H\_t }\OperatorTok{=}\NormalTok{ [[Hd1, wd1\_t],[Hd2, wd2\_t], H1}\OperatorTok{+}\NormalTok{H2]}
+\CommentTok{\# initial state: start with two qubits in ground state}
+\NormalTok{psi0 }\OperatorTok{=}\NormalTok{ tensor(basis(}\DecValTok{2}\NormalTok{,}\DecValTok{0}\NormalTok{),basis(}\DecValTok{2}\NormalTok{,}\DecValTok{0}\NormalTok{))}
+
+\NormalTok{res }\OperatorTok{=}\NormalTok{ mesolve(H\_t, psi0, tlist[:pntperns}\OperatorTok{*}\DecValTok{30}\NormalTok{], c\_ops, [])}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{single\_qubit\_graph(res,tlist[:pntperns}\OperatorTok{*}\DecValTok{30}\NormalTok{])}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/46f294731497bb0f6a79ccf10682d69e799f7e1c.png}
+
+Here you can visualize the two pulses acting in qubit 1 that form the
+Hadamard gate, a X (from zero to 1 expected value) and a \((\pi/2)_Y\),
+from 1 to 0.5 expected value, a superposition.
+
+And the pulses in qubit 2. The first Hadamard like in the Qubit 1. The Z
+made of three other gates, you can notice a little wiggle when there is
+a rotation in an axis that the qubit is parallel to (x axis here). Then
+the qubit goes to zero and back to the 0.5 expected value, this is the Y
+gate rotation. And does another longer wiggle around the 0.5 value, this
+is the \((3\pi/2)_X\) gate with a longer period. The last wiggle is from
+a X gate and it goes to 1 with another Y rotation. Then X makes it go
+from 1 to 0 expected qubit value.
+
+\hypertarget{movement-in-the-bloch-sphere-for-the-qubit-1}{%
+\subsection{Movement in the Bloch Sphere for the qubit
+1}\label{movement-in-the-bloch-sphere-for-the-qubit-1}}
+
+Here you can see it moving from the ground state \(|0\rangle\) to the
+\(|1\rangle\) state rotating around the x axis (following the right hand
+rule) and then 90° around the y axis to the
+\(|1_x\rangle=\frac{1}{\sqrt 2}|0\rangle+\frac{1}{\sqrt 2}|1\rangle\)
+state.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#creates the time dependant unitaries vector to cancel the precession}
+\NormalTok{Ud\_vec}\OperatorTok{=}\NormalTok{[]}
+\ControlFlowTok{for}\NormalTok{ t }\KeywordTok{in}\NormalTok{ tlist[:pntperns}\OperatorTok{*}\DecValTok{30}\NormalTok{]:}
+\NormalTok{    Ud}\OperatorTok{=}\NormalTok{sz1}\OperatorTok{*}\NormalTok{t}\OperatorTok{*}\NormalTok{w1}\OperatorTok{*}\BuiltInTok{complex}\NormalTok{(}\DecValTok{0}\NormalTok{,}\OperatorTok{{-}}\DecValTok{1}\NormalTok{)}\OperatorTok{/}\DecValTok{2}
+\NormalTok{    Ud\_vec.append(Ud.expm())}
+
+\CommentTok{\#multiplies each state vector by the corresponding Unitary in time }
+\NormalTok{bloch\_data}\OperatorTok{=}\NormalTok{[]}
+\ControlFlowTok{for}\NormalTok{ index }\KeywordTok{in} \BuiltInTok{range}\NormalTok{(}\BuiltInTok{len}\NormalTok{(res.states)):}
+\NormalTok{    bloch\_data.append(Ud\_vec[index]}\OperatorTok{*}\NormalTok{res.states[index])}
+
+\CommentTok{\#Pauli operators}
+\NormalTok{ex}\OperatorTok{=}\NormalTok{tensor(sigmax(),qeye(}\DecValTok{2}\NormalTok{))}
+\NormalTok{ey}\OperatorTok{=}\NormalTok{tensor(sigmay(),qeye(}\DecValTok{2}\NormalTok{))}
+\NormalTok{ez}\OperatorTok{=}\NormalTok{tensor(sigmaz(),qeye(}\DecValTok{2}\NormalTok{))}
+
+\CommentTok{\#lists of expected values that are the coordinates of the points in the bloch sphere}
+\NormalTok{x\_list}\OperatorTok{=}\NormalTok{expect(ex,bloch\_data)}
+\NormalTok{y\_list}\OperatorTok{=}\NormalTok{ expect(ey,bloch\_data)}
+\NormalTok{z\_list}\OperatorTok{=}\NormalTok{expect(ez,bloch\_data)}
+
+
+\NormalTok{b }\OperatorTok{=}\NormalTok{ Bloch()}
+\CommentTok{\#\# add data points from expectation values \#\#}
+\NormalTok{b.add\_points([}
+\NormalTok{            x\_list,}
+            \OperatorTok{{-}}\NormalTok{y\_list,}
+\NormalTok{            z\_list}
+\NormalTok{             ], meth}\OperatorTok{=}\StringTok{\textquotesingle{}l\textquotesingle{}}\NormalTok{)}
+
+
+\NormalTok{b.zlpos }\OperatorTok{=}\NormalTok{ [}\FloatTok{1.1}\NormalTok{,}\OperatorTok{{-}}\FloatTok{1.2}\NormalTok{]}
+
+\NormalTok{b.show()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/4f86809b5af69f12929e131fef662d021254dd20.png}
+
+\hypertarget{movement-in-the-bloch-sphere-for-the-qubit-2}{%
+\subsection{Movement in the Bloch Sphere for the qubit
+2}\label{movement-in-the-bloch-sphere-for-the-qubit-2}}
+
+Since there are many gates applied on this qubit it takes more effort to
+decipher the path it took. But you can notice for example the wiggle the
+qubit does when you apply a x rotation when it's already at the x axis.
+I made each gate in different colors (the tow last Xs are the same
+color). The first Hadamard is blue, the Z gate is red, the second
+Hadamard is green and the two Xs on the end are orange making a 360° lap
+on the sphere.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#creates the time dependant unitaries vector to cancel the precession}
+\NormalTok{Ud\_vec}\OperatorTok{=}\NormalTok{[]}
+\ControlFlowTok{for}\NormalTok{ t }\KeywordTok{in}\NormalTok{ tlist[:pntperns}\OperatorTok{*}\DecValTok{30}\NormalTok{]:}
+\NormalTok{    Ud}\OperatorTok{=}\NormalTok{sz2}\OperatorTok{*}\NormalTok{t}\OperatorTok{*}\NormalTok{w2}\OperatorTok{*}\BuiltInTok{complex}\NormalTok{(}\DecValTok{0}\NormalTok{,}\OperatorTok{{-}}\DecValTok{1}\NormalTok{)}\OperatorTok{/}\DecValTok{2}
+\NormalTok{    Ud\_vec.append(Ud.expm())}
+
+\CommentTok{\#multiplies each state vector by the corresponding Unitary in time }
+\NormalTok{bloch\_data}\OperatorTok{=}\NormalTok{[]}
+\ControlFlowTok{for}\NormalTok{ index }\KeywordTok{in} \BuiltInTok{range}\NormalTok{(}\BuiltInTok{len}\NormalTok{(res.states)):}
+\NormalTok{    bloch\_data.append(Ud\_vec[index]}\OperatorTok{*}\NormalTok{res.states[index])}
+
+\CommentTok{\#Pauli operators}
+\NormalTok{ex}\OperatorTok{=}\NormalTok{tensor(qeye(}\DecValTok{2}\NormalTok{), sigmax())}
+\NormalTok{ey}\OperatorTok{=}\NormalTok{tensor(qeye(}\DecValTok{2}\NormalTok{), sigmay())}
+\NormalTok{ez}\OperatorTok{=}\NormalTok{tensor(qeye(}\DecValTok{2}\NormalTok{), sigmaz())}
+
+\CommentTok{\#lists of expected values that are the coordinates of the points in the bloch sphere}
+\NormalTok{x\_list}\OperatorTok{=}\NormalTok{expect(ex,bloch\_data)}
+\NormalTok{y\_list}\OperatorTok{=}\NormalTok{ expect(ey,bloch\_data)}
+\NormalTok{z\_list}\OperatorTok{=}\NormalTok{expect(ez,bloch\_data)}
+
+
+\NormalTok{b }\OperatorTok{=}\NormalTok{ Bloch()}
+\CommentTok{\#\# add data points from expectation values \#\#}
+\NormalTok{b.add\_points([}
+\NormalTok{            x\_list[:}\DecValTok{5}\OperatorTok{*}\NormalTok{pntperns],}
+            \OperatorTok{{-}}\NormalTok{y\_list[:}\DecValTok{5}\OperatorTok{*}\NormalTok{pntperns],}
+\NormalTok{            z\_list[:}\DecValTok{5}\OperatorTok{*}\NormalTok{pntperns]}
+\NormalTok{             ], meth}\OperatorTok{=}\StringTok{\textquotesingle{}l\textquotesingle{}}\NormalTok{)}
+
+\NormalTok{b.add\_points([}
+\NormalTok{            x\_list[}\DecValTok{5}\OperatorTok{*}\NormalTok{pntperns:}\DecValTok{15}\OperatorTok{*}\NormalTok{pntperns],}
+            \OperatorTok{{-}}\NormalTok{y\_list[}\DecValTok{5}\OperatorTok{*}\NormalTok{pntperns:}\DecValTok{15}\OperatorTok{*}\NormalTok{pntperns],}
+\NormalTok{            z\_list[}\DecValTok{5}\OperatorTok{*}\NormalTok{pntperns:}\DecValTok{15}\OperatorTok{*}\NormalTok{pntperns]}
+\NormalTok{             ], meth}\OperatorTok{=}\StringTok{\textquotesingle{}l\textquotesingle{}}\NormalTok{)}
+
+\NormalTok{b.add\_points([}
+\NormalTok{            x\_list[}\DecValTok{15}\OperatorTok{*}\NormalTok{pntperns:}\DecValTok{20}\OperatorTok{*}\NormalTok{pntperns],}
+            \OperatorTok{{-}}\NormalTok{y\_list[}\DecValTok{15}\OperatorTok{*}\NormalTok{pntperns:}\DecValTok{20}\OperatorTok{*}\NormalTok{pntperns],}
+\NormalTok{            z\_list[}\DecValTok{15}\OperatorTok{*}\NormalTok{pntperns:}\DecValTok{20}\OperatorTok{*}\NormalTok{pntperns]}
+\NormalTok{             ], meth}\OperatorTok{=}\StringTok{\textquotesingle{}l\textquotesingle{}}\NormalTok{)}
+
+\NormalTok{b.add\_points([}
+\NormalTok{            x\_list[}\DecValTok{20}\OperatorTok{*}\NormalTok{pntperns:}\DecValTok{30}\OperatorTok{*}\NormalTok{pntperns],}
+            \OperatorTok{{-}}\NormalTok{y\_list[}\DecValTok{20}\OperatorTok{*}\NormalTok{pntperns:}\DecValTok{30}\OperatorTok{*}\NormalTok{pntperns],}
+\NormalTok{            z\_list[}\DecValTok{20}\OperatorTok{*}\NormalTok{pntperns:}\DecValTok{30}\OperatorTok{*}\NormalTok{pntperns]}
+\NormalTok{             ], meth}\OperatorTok{=}\StringTok{\textquotesingle{}l\textquotesingle{}}\NormalTok{)}
+
+
+\NormalTok{b.zlpos }\OperatorTok{=}\NormalTok{ [}\FloatTok{1.1}\NormalTok{,}\OperatorTok{{-}}\FloatTok{1.2}\NormalTok{]}
+
+\NormalTok{b.show()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/b61be6a3431ac2d470db292c58ac0e2de5bbe0ef.png}
+
+\hypertarget{the-cnot-gate}{%
+\section{The CNOT gate}\label{the-cnot-gate}}
+
+The CNOT gate can be build from two iSWAP gates and single qubit gates.
+Image from krantz page 32 IV-E-2 shown below:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Image(filename}\OperatorTok{=}\StringTok{\textquotesingle{}images/notebook{-}cnot.png\textquotesingle{}}\NormalTok{) }
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/5654d00f1df9bd453d0be29ed1bb09eca94eec3d.png}
+
+\hypertarget{initial-single-gates}{%
+\subsection{Initial single gates}\label{initial-single-gates}}
+
+Here we do the initial single qubit gates before the first iSWAP
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# initial state: use last state of the last simulation}
+\NormalTok{psi1 }\OperatorTok{=}\NormalTok{ res.states[}\OperatorTok{{-}}\DecValTok{1}\NormalTok{]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{psi1}
+\end{Highlighting}
+\end{Shaded}
+
+Quantum object: dims = [[2, 2], [2, 2]], shape = (4, 4), type = oper, isherm = True\begin{equation*}\left(\begin{array}{*{11}c}0.028 & (0.001-0.006j) & (-0.028+0.004j) & (-3.611\times10^{-04}+0.006j)\\(0.001+0.006j) & 0.449 & (-0.002-0.006j) & (-0.456+0.068j)\\(-0.028-0.004j) & (-0.002+0.006j) & 0.030 & (0.001-0.006j)\\(-3.611\times10^{-04}-0.006j) & (-0.456-0.068j) & (0.001+0.006j) & 0.493\\\end{array}\right)\end{equation*}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#qubit 1 drive}
+\KeywordTok{def}\NormalTok{ wd1\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+    \ControlFlowTok{return}\NormalTok{ Z\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{2}\NormalTok{,Omega1,w1,pi}\OperatorTok{/}\DecValTok{2}\NormalTok{)}
+
+\CommentTok{\#qubit 2 drive}
+\KeywordTok{def}\NormalTok{ wd2\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+    \ControlFlowTok{return}\NormalTok{ X\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{0}\NormalTok{,Omega2,w2,pi}\OperatorTok{/}\DecValTok{2}\NormalTok{) }\OperatorTok{+}\NormalTok{ Z\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{3}\NormalTok{,Omega2,w2,pi}\OperatorTok{/}\DecValTok{2}\NormalTok{) }
+ 
+
+\NormalTok{H\_t }\OperatorTok{=}\NormalTok{ [[Hd1, wd1\_t],[Hd2, wd2\_t], H1}\OperatorTok{+}\NormalTok{H2]}
+\CommentTok{\# initial state: start with two qubits in ground state}
+\NormalTok{res }\OperatorTok{=}\NormalTok{ mesolve(H\_t, psi1, tlist[:pntperns}\OperatorTok{*}\DecValTok{11}\NormalTok{], c\_ops, [])}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{single\_qubit\_graph(res,tlist[:pntperns}\OperatorTok{*}\DecValTok{11}\NormalTok{])}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/dd89c03091f85e748d2e60a74ffcbb8d3e65c6af.png}
+
+\hypertarget{the-iswap-gate}{%
+\section{The iSWAP gate}\label{the-iswap-gate}}
+
+A 2-qubit XX+YY interaction. This is a Clifford and symmetric gate. Its
+action is to swap two qubit states and phase the \textbar01⟩ and
+\textbar10⟩ amplitudes by i.
+
+It's made by doing a resonance of both qubits for a determined period.
+In the simulation I will just adjust the frequency of a qubit to match
+the other. But in practice this can be made by adjusting a magnetic flux
+going through the two qubits so that the frequency(dependant on the
+flux) adjusts to a value where both are equal. The period for the iSWAP
+is given by the formula:
+
+\(\tau = \frac{\pi}{2g}\)
+
+I will implement a special Hamiltonian for it to be used again later.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# initial state: use last state of the last simulation}
+\NormalTok{psi2 }\OperatorTok{=}\NormalTok{ res.states[}\OperatorTok{{-}}\DecValTok{1}\NormalTok{]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{psi2}
+\end{Highlighting}
+\end{Shaded}
+
+Quantum object: dims = [[2, 2], [2, 2]], shape = (4, 4), type = oper, isherm = True\begin{equation*}\left(\begin{array}{*{11}c}0.246 & (-0.216+0.032j) & (-0.111-0.201j) & (0.123+0.162j)\\(-0.216-0.032j) & 0.270 & (0.071+0.191j) & (-0.122-0.221j)\\(-0.111+0.201j) & (0.071-0.191j) & 0.231 & (-0.202+0.030j)\\(0.123-0.162j) & (-0.122+0.221j) & (-0.202-0.030j) & 0.253\\\end{array}\right)\end{equation*}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# resonant iSWAP gate 2 qubits}
+\NormalTok{T0 }\OperatorTok{=} \DecValTok{2}
+\NormalTok{T\_gate }\OperatorTok{=}\NormalTok{pi}\OperatorTok{/}\DecValTok{2}\OperatorTok{/}\NormalTok{g}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#qubit energy is changed to enter ressonance with other qubit in interval [T\_0, T\_0+T\_gate]}
+\KeywordTok{def}\NormalTok{ w1\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+    \ControlFlowTok{return} \DecValTok{1} \OperatorTok{+}\NormalTok{ (w2}\OperatorTok{/}\NormalTok{w1}\OperatorTok{{-}}\DecValTok{1}\NormalTok{)}\OperatorTok{*}\NormalTok{(u\_t(t}\OperatorTok{{-}}\NormalTok{T0)}\OperatorTok{{-}}\NormalTok{u\_t(t}\OperatorTok{{-}}\NormalTok{T0}\OperatorTok{{-}}\NormalTok{T\_gate))}
+
+\NormalTok{times}\OperatorTok{=}\NormalTok{tlist[:pntperns}\OperatorTok{*}\DecValTok{30}\NormalTok{]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#This will multiply Hc H1 and H2 by the time dependant step functions like wc\_t during the mesolve step}
+\NormalTok{H\_t\_iSWAP }\OperatorTok{=}\NormalTok{ [ [H1, w1\_t], Hqq}\OperatorTok{+}\NormalTok{H2]}
+
+\NormalTok{res }\OperatorTok{=}\NormalTok{ mesolve(H\_t\_iSWAP, psi2, times, c\_ops, [])}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{fig, axes }\OperatorTok{=}\NormalTok{ plt.subplots(}\DecValTok{2}\NormalTok{, }\DecValTok{1}\NormalTok{, sharex}\OperatorTok{=}\VariableTok{True}\NormalTok{, figsize}\OperatorTok{=}\NormalTok{(}\DecValTok{10}\NormalTok{,}\DecValTok{8}\NormalTok{))}
+
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].plot(times, [w1\_t(t)}\OperatorTok{*}\NormalTok{w1 }\ControlFlowTok{for}\NormalTok{ t }\KeywordTok{in}\NormalTok{ times], }\StringTok{\textquotesingle{}b\textquotesingle{}}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit1"}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].plot(times, [w2 }\ControlFlowTok{for}\NormalTok{ t }\KeywordTok{in}\NormalTok{ times], }\StringTok{\textquotesingle{}g\textquotesingle{}}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit2"}\NormalTok{)}
+\CommentTok{\#axes.set\_ylim({-}0.6,0.6)}
+\CommentTok{\#axes.set\_xlim(0,100)}
+
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].set\_ylabel(}\StringTok{"Energy (GHz)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].set\_xlabel(}\StringTok{"Time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].legend()}
+
+\NormalTok{axes[}\DecValTok{0}\NormalTok{].legend()}
+
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].plot(times, np.real(expect(n1, res.states)), }\StringTok{\textquotesingle{}b\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit 1"}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].plot(times, np.real(expect(n2, res.states)), }\StringTok{\textquotesingle{}g\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit 2"}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].set\_ylim(}\DecValTok{0}\NormalTok{, }\FloatTok{1.5}\NormalTok{)}
+\CommentTok{\#axes[1].set\_xlim(0,20)}
+
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].set\_xlabel(}\StringTok{"Time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].set\_ylabel(}\StringTok{"Occupation probability"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes[}\DecValTok{1}\NormalTok{].legend()}
+
+
+\NormalTok{fig.tight\_layout()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/f7817ef670eba9886331d261117373f3680bfcd3.png}
+
+You can see in the energy graph how a resonance is necessary for the
+interaction visible in the occupation probability graph where the cavity
+and qubit exchange their states. First with qubit 1 and then with qubit
+2.
+
+\hypertarget{x_pi2-in-between-gate}{%
+\subsection{\texorpdfstring{\(X_\pi/2\) in between
+gate}{X\_\textbackslash pi/2 in between gate}}\label{x_pi2-in-between-gate}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# initial state: use last state of the last simulation}
+\NormalTok{psi3 }\OperatorTok{=}\NormalTok{ res.states[}\OperatorTok{{-}}\DecValTok{1}\NormalTok{]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{psi3}
+\end{Highlighting}
+\end{Shaded}
+
+Quantum object: dims = [[2, 2], [2, 2]], shape = (4, 4), type = oper, isherm = True\begin{equation*}\left(\begin{array}{*{11}c}0.303 & (0.175-0.119j) & (-0.060-0.207j) & (0.133+0.120j)\\(0.175+0.119j) & 0.232 & (0.056-0.177j) & (0.044+0.165j)\\(-0.060+0.207j) & (0.056+0.177j) & 0.267 & (-0.177+0.115j)\\(0.133-0.120j) & (0.044-0.165j) & (-0.177-0.115j) & 0.198\\\end{array}\right)\end{equation*}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#qubit 1 drive}
+\KeywordTok{def}\NormalTok{ wd1\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+    \ControlFlowTok{return}\NormalTok{ X\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{5}\NormalTok{,Omega1,w1,pi}\OperatorTok{/}\DecValTok{2}\NormalTok{)}
+
+\CommentTok{\#qubit 2 drive}
+\KeywordTok{def}\NormalTok{ wd2\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+    \ControlFlowTok{return} \DecValTok{0}
+
+\NormalTok{H\_t }\OperatorTok{=}\NormalTok{ [[Hd1, wd1\_t],[Hd2, wd2\_t], H1}\OperatorTok{+}\NormalTok{H2]}
+
+\NormalTok{res }\OperatorTok{=}\NormalTok{ mesolve(H\_t, psi3, tlist[:pntperns}\OperatorTok{*}\DecValTok{7}\NormalTok{], c\_ops, [])}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{single\_qubit\_graph(res,tlist[:pntperns}\OperatorTok{*}\DecValTok{7}\NormalTok{])}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/cb73b658ee54477a1dc2a21b844ab409d31b2458.png}
+
+\hypertarget{second-iswap}{%
+\subsection{Second iSWAP}\label{second-iswap}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# initial state: use last state of the last simulation}
+\NormalTok{psi4 }\OperatorTok{=}\NormalTok{ res.states[}\OperatorTok{{-}}\DecValTok{1}\NormalTok{]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{psi4}
+\end{Highlighting}
+\end{Shaded}
+
+Quantum object: dims = [[2, 2], [2, 2]], shape = (4, 4), type = oper, isherm = True\begin{equation*}\left(\begin{array}{*{11}c}0.093 & (-0.036-0.023j) & (-0.055-0.001j) & (-0.030-0.008j)\\(-0.036+0.023j) & 0.366 & (0.180-0.330j) & (0.026-0.034j)\\(-0.055+0.001j) & (0.180+0.330j) & 0.492 & (0.033+0.019j)\\(-0.030+0.008j) & (0.026+0.034j) & (0.033-0.019j) & 0.048\\\end{array}\right)\end{equation*}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{res }\OperatorTok{=}\NormalTok{ mesolve(H\_t\_iSWAP, psi4, times, c\_ops, [])}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{fig, axes }\OperatorTok{=}\NormalTok{ plt.subplots(}\DecValTok{1}\NormalTok{, }\DecValTok{1}\NormalTok{, sharex}\OperatorTok{=}\VariableTok{True}\NormalTok{, figsize}\OperatorTok{=}\NormalTok{(}\DecValTok{10}\NormalTok{,}\DecValTok{4}\NormalTok{))}
+
+
+\NormalTok{axes.plot(times, np.real(expect(n1, res.states)), }\StringTok{\textquotesingle{}b\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit 1"}\NormalTok{)}
+\NormalTok{axes.plot(times, np.real(expect(n2, res.states)), }\StringTok{\textquotesingle{}g\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit 2"}\NormalTok{)}
+\NormalTok{axes.set\_ylim(}\DecValTok{0}\NormalTok{, }\FloatTok{1.5}\NormalTok{)}
+\CommentTok{\#axes[1].set\_xlim(0,20)}
+
+\NormalTok{axes.set\_xlabel(}\StringTok{"Time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes.set\_ylabel(}\StringTok{"Occupation probability"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes.legend()}
+
+
+\NormalTok{fig.tight\_layout()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/e871db89f7c8356de02644429a6f5c84a862afa1.png}
+
+\hypertarget{z_pi2-final-gate}{%
+\subsection{\texorpdfstring{\(Z_\pi/2\) final
+gate}{Z\_\textbackslash pi/2 final gate}}\label{z_pi2-final-gate}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# initial state: use last state of the last simulation}
+\NormalTok{psi5 }\OperatorTok{=}\NormalTok{ res.states[}\OperatorTok{{-}}\DecValTok{1}\NormalTok{]}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#qubit 1 drive}
+\KeywordTok{def}\NormalTok{ wd1\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+    \ControlFlowTok{return} \DecValTok{0}
+
+\CommentTok{\#qubit 2 drive}
+\KeywordTok{def}\NormalTok{ wd2\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+    \ControlFlowTok{return}\NormalTok{ Z\_t(t,}\FloatTok{0.3}\NormalTok{,}\DecValTok{1}\NormalTok{,Omega2,w2,pi}\OperatorTok{/}\DecValTok{2}\NormalTok{)}
+
+\NormalTok{H\_t }\OperatorTok{=}\NormalTok{ [[Hd1, wd1\_t],[Hd2, wd2\_t], H1}\OperatorTok{+}\NormalTok{H2]}
+
+\NormalTok{res }\OperatorTok{=}\NormalTok{ mesolve(H\_t, psi5, tlist[:pntperns}\OperatorTok{*}\DecValTok{10}\NormalTok{], c\_ops, [])}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{single\_qubit\_graph(res,tlist[:pntperns}\OperatorTok{*}\DecValTok{10}\NormalTok{])}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_27a6c794aaf24d748bdf8c23cfd4c8c4/494978afbcf6fb194e842acc5a22bc1a8f8a3af8.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{final}\OperatorTok{=}\NormalTok{res.states[}\OperatorTok{{-}}\DecValTok{1}\NormalTok{]}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{final-answer-density-matrix-of-the-qubits}{%
+\subsection{Final answer density matrix of the
+qubits}\label{final-answer-density-matrix-of-the-qubits}}
+
+The answer expected for the problem was the state vector:
+
+\(|\Psi\rangle = \frac{1}{\sqrt 2} |01\rangle + \frac{1}{\sqrt 2} |10\rangle\)
+
+or the density matrix:
+
+\(\rho = 0.5|01\rangle\langle01|+0.5|10\rangle\langle10|\)
+
+Because we did a CNOT with the controller qubit 1 at a Hadamard
+superposition
+\((\frac{\sqrt 2}{2} |0\rangle + \frac{\sqrt 2}{2} |1\rangle)\) and the
+controlled qubit 2 at \(|1\rangle\)
+
+\(CNOT_{1,2}X_2H_1 |0_20_1\rangle = CNOT_{1,2}|1_2\rangle(\frac{1}{\sqrt 2}|0_1\rangle + \frac{1}{\sqrt 2}|1_1\rangle) = \frac{1}{\sqrt 2}|01\rangle + \frac{1}{\sqrt 2}|10\rangle\)
+
+The density matrix above \(\rho\) is made explicit below for a better
+comparison:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FloatTok{0.5}\OperatorTok{*}\NormalTok{(tensor(basis(}\DecValTok{2}\NormalTok{,}\DecValTok{1}\NormalTok{),basis(}\DecValTok{2}\NormalTok{,}\DecValTok{0}\NormalTok{))}\OperatorTok{*}\NormalTok{tensor(basis(}\DecValTok{2}\NormalTok{,}\DecValTok{1}\NormalTok{),basis(}\DecValTok{2}\NormalTok{,}\DecValTok{0}\NormalTok{)).dag()}\OperatorTok{+}\NormalTok{tensor(basis(}\DecValTok{2}\NormalTok{,}\DecValTok{0}\NormalTok{),basis(}\DecValTok{2}\NormalTok{,}\DecValTok{1}\NormalTok{))}\OperatorTok{*}\NormalTok{tensor(basis(}\DecValTok{2}\NormalTok{,}\DecValTok{0}\NormalTok{),basis(}\DecValTok{2}\NormalTok{,}\DecValTok{1}\NormalTok{)).dag())}
+\end{Highlighting}
+\end{Shaded}
+
+Quantum object: dims = [[2, 2], [2, 2]], shape = (4, 4), type = oper, isherm = True\begin{equation*}\left(\begin{array}{*{11}c}0.0 & 0.0 & 0.0 & 0.0\\0.0 & 0.500 & 0.0 & 0.0\\0.0 & 0.0 & 0.500 & 0.0\\0.0 & 0.0 & 0.0 & 0.0\\\end{array}\right)\end{equation*}
+
+\(|0_10_2\rangle |0_11_2\rangle |1_10_2\rangle |1_11_2\rangle\)
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#answer with dissipation}
+\NormalTok{final}
+\end{Highlighting}
+\end{Shaded}
+
+Quantum object: dims = [[2, 2], [2, 2]], shape = (4, 4), type = oper, isherm = True\begin{equation*}\left(\begin{array}{*{11}c}0.222 & (0.046-0.018j) & (3.144\times10^{-04}-0.046j) & (-0.012-0.021j)\\(0.046+0.018j) & 0.428 & (0.244-0.194j) & (0.006-0.027j)\\(3.144\times10^{-04}+0.046j) & (0.244+0.194j) & 0.312 & (0.013-0.028j)\\(-0.012+0.021j) & (0.006+0.027j) & (0.013+0.028j) & 0.038\\\end{array}\right)\end{equation*}
+
+With dissipation we get this density matrix which has a similiarity to
+the expect answer but has some probability on the \(|00\rangle\) state
+because of the qubits' relaxation to the \(|0\rangle\) state.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#answer without dissipation}
+\NormalTok{final}\OperatorTok{*}\NormalTok{final.dag()}
+\end{Highlighting}
+\end{Shaded}
+
+Quantum object: dims = [[2, 2], [2, 2]], shape = (4, 4), type = oper, isherm = True\begin{equation*}\left(\begin{array}{*{11}c}0.010 & (0.032-0.062j) & (-0.013-0.068j) & (-0.004-0.007j)\\(0.032+0.062j) & 0.495 & (0.385-0.305j) & (0.032-0.049j)\\(-0.013+0.068j) & (0.385+0.305j) & 0.488 & (0.055-0.018j)\\(-0.004+0.007j) & (0.032+0.049j) & (0.055+0.018j) & 0.007\\\end{array}\right)\end{equation*}
+
+Without dissipation we get a matrix that is quite similar to the final
+answer. Much more so than with dissipation for obvious reasons.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+
+\end{Highlighting}
+\end{Shaded}
+
+

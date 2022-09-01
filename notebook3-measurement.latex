@@ -1,0 +1,265 @@
+
+\hypertarget{doing-a-measurement-on-a-qubit-through-a-cavity}{%
+\section{Doing a measurement on a Qubit through a
+cavity}\label{doing-a-measurement-on-a-qubit-through-a-cavity}}
+
+This notebook will show how a measurement is made on a qubit trough a
+signal sent through the cavity. Depending on the state of the qubit the
+cavity's resonance frequency will change a small amount and the output
+of this signal we sent to the cavity will change. This is explained by
+the Hamiltonian of the interaction. In the dispersive regime we can
+approximate the Hamiltonian to:
+
+\(\displaystyle H = \omega_r a^\dagger a - \frac{1}{2}\omega_q \sigma_z + \chi (a^\dagger a + 1/2) \sigma_z\)
+
+And rearrange it to:
+
+\(\displaystyle H = a^\dagger a (\omega_r+\chi\sigma_z) - \frac{1}{2}\omega_q \sigma_z + \chi (1/2) \sigma_z\)
+
+Where \(\chi = g^2/\Delta\) and \(\Delta=|wc-w1|\). We can get from this
+an intuition that the state of the qubit expressed by \(\sigma_z\) will
+change the angular frequency \((\omega_r+\chi\sigma_z)\) of the cavity
+(by plus or minus \(\chi\)) and we will measure a different amount of
+photons depending on the state of the qubit. Following the principles of
+quantum mechanics this will of course colapse the qubit's wave function
+to the measured value.
+
+For the simulation we use a Jaynes-Cumming Hamiltonian modified to have
+a drive in the cavity:
+
+\(H = \hbar \omega_r a^\dagger a + A \cos(\omega_dt + \phi_0) (a + a^\dagger)-\frac{1}{2}\hbar\omega_c\sigma_z+g(a^\dagger+a)(\sigma_-+\sigma_+)\)
+
+Where \$ A \textbackslash cos(\textbackslash omega\_dt +
+\textbackslash phi\_0)\$ is the drive in the cavity.Rewritten as:
+
+\(H = \hbar \omega_r a^\dagger a + (A e^{-i\omega_dt}+A^* e^{+i\omega_dt}) (a + a^\dagger)-\frac{1}{2}\hbar\omega_c\sigma_z+g(a^\dagger+a)(\sigma_-+\sigma_+)\)
+
+Then we use a unitary transformation at the Hamiltonian:
+
+\(U=exp(i\omega_d a^\dagger a t)\)
+
+And the rotating wave approximation to elimitate fast rotating terms
+getting the hamiltonian used:
+
+\(H=(\omega_c-\omega)a^\dagger a + A (a+a^\dagger)-\frac{1}{2}(\omega_q-\omega)\sigma_z+g(a^\dagger+a)(\sigma_-+\sigma_+)\)
+
+Where \(\omega=g^2/|\omega_c-\omega_d|\)
+
+This process for a single cavity can be seen with more details at:
+
+\url{https://nbviewer.org/github/jrjohansson/sympsi-notebooks/blob/master/lecture-sympsi-resonator.ipynb}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\OperatorTok{\%}\NormalTok{matplotlib inline}
+
+\ImportTok{from}\NormalTok{ qutip }\ImportTok{import} \OperatorTok{*}
+\ImportTok{from}\NormalTok{ math }\ImportTok{import} \OperatorTok{*}
+
+\ImportTok{import}\NormalTok{ matplotlib.pyplot }\ImportTok{as}\NormalTok{ plt}
+\ImportTok{import}\NormalTok{ numpy }\ImportTok{as}\NormalTok{ np}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{N }\OperatorTok{=} \DecValTok{10}
+
+\NormalTok{wc }\OperatorTok{=} \FloatTok{4.5} \OperatorTok{*} \DecValTok{2} \OperatorTok{*}\NormalTok{ pi }\CommentTok{\#cavity angular freq}
+\NormalTok{w1 }\OperatorTok{=} \DecValTok{4} \OperatorTok{*} \DecValTok{2} \OperatorTok{*}\NormalTok{ pi }\CommentTok{\#qubit 1 angular freq}
+
+
+\NormalTok{g1 }\OperatorTok{=} \FloatTok{0.1} \OperatorTok{*} \DecValTok{2} \OperatorTok{*}\NormalTok{ pi}
+
+\NormalTok{Omega1}\OperatorTok{=}\DecValTok{4}
+
+\NormalTok{chi}\OperatorTok{=}\NormalTok{g1}\OperatorTok{**}\DecValTok{2}\OperatorTok{/}\BuiltInTok{abs}\NormalTok{(wc}\OperatorTok{{-}}\NormalTok{w1)}
+
+\NormalTok{tlist }\OperatorTok{=}\NormalTok{ np.linspace(}\DecValTok{0}\NormalTok{, }\DecValTok{20}\NormalTok{, }\DecValTok{1600}\NormalTok{)}
+
+\NormalTok{width }\OperatorTok{=} \FloatTok{0.5}
+
+\CommentTok{\#rotating wave approximation}
+\NormalTok{use\_rwa}\OperatorTok{=} \VariableTok{False}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{w}\OperatorTok{=}\NormalTok{chi}
+\NormalTok{w}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+0.1256637061435917
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# cavity operators}
+\NormalTok{a }\OperatorTok{=}\NormalTok{ tensor(destroy(N), qeye(}\DecValTok{2}\NormalTok{))}
+\NormalTok{n }\OperatorTok{=}\NormalTok{ a.dag() }\OperatorTok{*}\NormalTok{ a}
+
+\CommentTok{\# operators for qubit 1}
+\NormalTok{sm1 }\OperatorTok{=}\NormalTok{ tensor(qeye(N), destroy(}\DecValTok{2}\NormalTok{))}
+\NormalTok{sz1 }\OperatorTok{=}\NormalTok{ tensor(qeye(N), sigmaz())}
+\NormalTok{sy1 }\OperatorTok{=}\NormalTok{ tensor(qeye(N), sigmay())}
+\NormalTok{sx1 }\OperatorTok{=}\NormalTok{ tensor(qeye(N), sigmax())}
+\NormalTok{n1 }\OperatorTok{=}\NormalTok{ sm1.dag() }\OperatorTok{*}\NormalTok{ sm1}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Hamiltonian using QuTiP}
+\CommentTok{\#cavity}
+\NormalTok{Hc }\OperatorTok{=}\NormalTok{ a.dag() }\OperatorTok{*}\NormalTok{ a }\OperatorTok{*}\NormalTok{ (wc}\OperatorTok{{-}}\NormalTok{w)}
+\CommentTok{\#qubits}
+\NormalTok{H1 }\OperatorTok{=} \OperatorTok{{-}} \FloatTok{0.5} \OperatorTok{*}\NormalTok{ sz1 }\OperatorTok{*}\NormalTok{ (w1}\OperatorTok{{-}}\NormalTok{w)}
+
+\CommentTok{\#cavity drive}
+\NormalTok{Hdc }\OperatorTok{=}\NormalTok{ (a.dag() }\OperatorTok{+}\NormalTok{ a )}
+
+\CommentTok{\#2*sx}
+\CommentTok{\#s+=[[0,1],[0,0]]}
+\CommentTok{\#s{-}=s+.dag()}
+
+\CommentTok{\#qubit drive}
+\NormalTok{Hd1}\OperatorTok{=}\NormalTok{Omega1}\OperatorTok{*}\NormalTok{sy1}
+
+
+\CommentTok{\#Cavity{-}qubit coupling hamiltonians}
+\CommentTok{\# Hamiltonian}
+\ControlFlowTok{if}\NormalTok{ use\_rwa:}
+\NormalTok{    Hc1 }\OperatorTok{=}\NormalTok{ g1 }\OperatorTok{*}\NormalTok{ (a.dag() }\OperatorTok{*}\NormalTok{ sm1 }\OperatorTok{+}\NormalTok{ a }\OperatorTok{*}\NormalTok{ sm1.dag())}
+\ControlFlowTok{else}\NormalTok{:}
+\NormalTok{    Hc1 }\OperatorTok{=}\NormalTok{ g1 }\OperatorTok{*}\NormalTok{ (a.dag() }\OperatorTok{+}\NormalTok{ a) }\OperatorTok{*}\NormalTok{ (sm1 }\OperatorTok{+}\NormalTok{ sm1.dag()) }
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#unitary step function}
+\KeywordTok{def}\NormalTok{ u\_t(t):}
+    \ControlFlowTok{return} \DecValTok{1}\OperatorTok{*}\NormalTok{(t }\OperatorTok{\textgreater{}} \DecValTok{0}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#qubit 1 drive}
+\CommentTok{\#A = (1/3)*0.0002\# field aplitude}
+\KeywordTok{def}\NormalTok{ A\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+\NormalTok{    TA1}\OperatorTok{=}\DecValTok{1}
+\NormalTok{    T\_As}\OperatorTok{=}\DecValTok{10}
+\NormalTok{    Amp}\OperatorTok{=}\DecValTok{1}
+    \ControlFlowTok{return}\NormalTok{ Amp}\OperatorTok{*}\NormalTok{(u\_t(t}\OperatorTok{{-}}\NormalTok{TA1)}\OperatorTok{{-}}\NormalTok{u\_t(t}\OperatorTok{{-}}\NormalTok{TA1}\OperatorTok{{-}}\NormalTok{T\_As)) }
+\CommentTok{\#+ Amp*(u\_t(t{-}TA2){-}u\_t(t{-}TA2{-}T\_As)))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{fig, axes }\OperatorTok{=}\NormalTok{ plt.subplots(}\DecValTok{1}\NormalTok{, }\DecValTok{1}\NormalTok{, figsize}\OperatorTok{=}\NormalTok{(}\DecValTok{10}\NormalTok{,}\DecValTok{4}\NormalTok{))}
+
+\NormalTok{axes.plot(tlist, [A\_t(t) }\ControlFlowTok{for}\NormalTok{ t }\KeywordTok{in}\NormalTok{ tlist], }\StringTok{\textquotesingle{}r\textquotesingle{}}\NormalTok{, label}\OperatorTok{=}\StringTok{"drive cavity"}\NormalTok{)}
+\NormalTok{axes.set\_ylim(}\OperatorTok{{-}}\FloatTok{0.2}\NormalTok{,}\FloatTok{1.2}\NormalTok{)}
+\NormalTok{axes.set\_xlim(}\DecValTok{0}\NormalTok{,}\DecValTok{20}\NormalTok{)}
+\NormalTok{axes.set\_xlabel(}\StringTok{"Time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes.set\_ylabel(}\StringTok{"Vd Signal Cavity"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+
+
+
+\NormalTok{fig.tight\_layout()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_e5bef1d270b243bd92dbbed08332be27/90275e2ab911a1a6cd1890abad9c647c24240584.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# method 2: a function callback that returns the coefficient for a qobj}
+    \CommentTok{\#H = [H0, [H1, lambda x,y: x]]}
+    \CommentTok{\#output = mesolve(H, psi0, tlist, c\_op\_list, [sm.dag() * sm], \{\})  }
+
+\CommentTok{\#This will multiply Hd1 and Hd2 by the time dependant step functions like wd1\_t during the mesolve step}
+\NormalTok{H\_t }\OperatorTok{=}\NormalTok{ [[Hdc,A\_t], Hc}\OperatorTok{+}\NormalTok{H1}\OperatorTok{+}\NormalTok{Hc1]}
+\CommentTok{\# initial state: start with two qubits in ground state}
+\NormalTok{psi0 }\OperatorTok{=}\NormalTok{ tensor(basis(N,}\DecValTok{0}\NormalTok{),basis(}\DecValTok{2}\NormalTok{,}\DecValTok{0}\NormalTok{))}
+\NormalTok{psi1 }\OperatorTok{=}\NormalTok{ tensor(basis(N,}\DecValTok{0}\NormalTok{),basis(}\DecValTok{2}\NormalTok{,}\DecValTok{1}\NormalTok{))}
+\NormalTok{res0 }\OperatorTok{=}\NormalTok{ mesolve(H\_t, psi0, tlist, [], [])}
+\NormalTok{res1 }\OperatorTok{=}\NormalTok{ mesolve(H\_t, psi1, tlist, [], [])}
+\end{Highlighting}
+\end{Shaded}
+
+Then we graph the expected value of the operator \(a\) which is the
+photon output of the cavity and the value we would measure coming
+reflected from it in a real situation.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+ \KeywordTok{def}\NormalTok{ single\_qubit\_graph(res1, res0):}
+\NormalTok{    fig, axes }\OperatorTok{=}\NormalTok{ plt.subplots(}\DecValTok{1}\NormalTok{, }\DecValTok{1}\NormalTok{, sharex}\OperatorTok{=}\VariableTok{True}\NormalTok{, figsize}\OperatorTok{=}\NormalTok{(}\DecValTok{10}\NormalTok{,}\DecValTok{4}\NormalTok{))}
+
+    \CommentTok{\#axes.plot(tlist, np.real(expect(n1, res.states)), \textquotesingle{}b\textquotesingle{}, linewidth=2, label="qubit 1")}
+    \CommentTok{\#axes.plot(tlist, np.abs(expect(n, res.states)), \textquotesingle{}r\textquotesingle{}, linewidth=2, label="cavity")}
+\NormalTok{    axes.plot(tlist, np.}\BuiltInTok{abs}\NormalTok{(expect(a, res1.states)), }\StringTok{\textquotesingle{}b\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit in |1\textgreater{}"}\NormalTok{)}
+\NormalTok{    axes.plot(tlist, np.}\BuiltInTok{abs}\NormalTok{(expect(a, res0.states)), }\StringTok{\textquotesingle{}r\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit in |0\textgreater{}"}\NormalTok{)}
+   \CommentTok{\#}
+    \CommentTok{\#axes.plot(tlist, np.imag(expect(a, res.states)), \textquotesingle{}g\textquotesingle{}, linewidth=2, label="cavity")}
+   \CommentTok{\# axes.set\_ylim(0, 1.5)}
+    \CommentTok{\#axes.set\_xlim(1,10)}
+
+\NormalTok{    axes.set\_xlabel(}\StringTok{"Time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{    axes.set\_ylabel(}\StringTok{"Expected value of a"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{    axes.legend()}
+
+\NormalTok{    fig.tight\_layout()}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{single\_qubit\_graph(res1, res0)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_e5bef1d270b243bd92dbbed08332be27/3505b580894a501ad165f66336391d90fa7f92eb.png}
+
+Then we make the discret fourier transform during the interval we
+applied A and compare the wave frequencies with each qubit state:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+
+\NormalTok{fig, axes }\OperatorTok{=}\NormalTok{ plt.subplots(}\DecValTok{1}\NormalTok{, }\DecValTok{1}\NormalTok{, sharex}\OperatorTok{=}\VariableTok{True}\NormalTok{, figsize}\OperatorTok{=}\NormalTok{(}\DecValTok{10}\NormalTok{,}\DecValTok{4}\NormalTok{))}
+
+\NormalTok{axes.plot( np.}\BuiltInTok{abs}\NormalTok{(np.fft.fft(expect(a, res1.states)[}\DecValTok{200}\NormalTok{:])), }\StringTok{\textquotesingle{}b\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit in |1\textgreater{}"}\NormalTok{)}
+\NormalTok{axes.plot( np.}\BuiltInTok{abs}\NormalTok{(np.fft.fft(expect(a, res0.states))[}\DecValTok{200}\NormalTok{:]), }\StringTok{\textquotesingle{}r\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit in |0\textgreater{}"}\NormalTok{)}
+\CommentTok{\#axes.plot(tlist, np.imag(expect(a, res.states)), \textquotesingle{}g\textquotesingle{}, linewidth=2, label="cavity")}
+\CommentTok{\# axes.set\_ylim(0, 1.5)}
+\NormalTok{axes.set\_xlim(}\DecValTok{1200}\NormalTok{,}\DecValTok{1400}\NormalTok{)}
+
+\NormalTok{axes.set\_xlabel(}\StringTok{"freq"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes.set\_ylabel(}\StringTok{"Expected value of a"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{axes.legend()}
+
+\NormalTok{fig.tight\_layout()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_e5bef1d270b243bd92dbbed08332be27/18e340d826ca1bb2212a6e31c2b3a1716f325d68.png}
+
+And we notice here how the peak frequency for the qubit in the fourier
+graph is slightly higher for the qubit in the \(|1\rangle\) state than
+for the qubit in the \(|0\rangle\) state like expected. Measuring the
+qubit would ammount to detecting this difference.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+
+\end{Highlighting}
+\end{Shaded}
+
+

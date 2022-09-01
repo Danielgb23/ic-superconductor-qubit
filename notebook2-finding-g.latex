@@ -1,0 +1,402 @@
+
+\hypertarget{simulating-the-calibration-of-the-g-interaction-factor-between-two-qubits}{%
+\section{Simulating the calibration of the g interaction factor between
+two
+qubits}\label{simulating-the-calibration-of-the-g-interaction-factor-between-two-qubits}}
+
+In this notebook we will simulate two qubits that are simulated with an
+interaction for values close to and in their resonance to emulate the
+process used in real quantum computers to calibrate the factor of
+interaction between them. This factor is used to determine the lenght of
+pulses used in two qubit gates like the iSWAP.
+
+The process starts with the qubit 1 at the excited state \(|1\rangle\)
+(in real life using a \(\pi\) pulse on the ground state). And the other
+qubit (2) at the ground state \(|0\rangle\). Then we use (for example a
+different magnetic flux on the qubits) to change the energy/angular
+frequency of qubit 1 and map it across many energies around the energy
+of qubit 2. Then we do many different time intervals in these states of
+an altered energy and measure the value on qubit 2 many times. Getting a
+probability of it being in the excited state (sucessful swap with qubit
+1). Mapping both the time intervals and the energies we can infer the g
+factor of interaction from the peaks in our map.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\OperatorTok{\%}\NormalTok{matplotlib inline}
+
+\ImportTok{from}\NormalTok{ qutip }\ImportTok{import} \OperatorTok{*}
+
+\ImportTok{from}\NormalTok{ math }\ImportTok{import} \OperatorTok{*}
+\ImportTok{import}\NormalTok{ matplotlib.pyplot }\ImportTok{as}\NormalTok{ plt}
+\ImportTok{import}\NormalTok{ numpy }\ImportTok{as}\NormalTok{ np}
+
+
+\ImportTok{import}\NormalTok{ timeit}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{constants}{%
+\subsection{Constants}\label{constants}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{w1 }\OperatorTok{=} \FloatTok{3.0} \OperatorTok{*} \DecValTok{2} \OperatorTok{*}\NormalTok{ pi }\CommentTok{\#qubit 1 angular freq}
+\NormalTok{w2 }\OperatorTok{=} \FloatTok{2.0} \OperatorTok{*} \DecValTok{2} \OperatorTok{*}\NormalTok{ pi }\CommentTok{\#qubit 2 angular freq}
+
+\NormalTok{g }\OperatorTok{=} \FloatTok{0.01} \OperatorTok{*} \DecValTok{2} \OperatorTok{*}\NormalTok{ pi}
+
+\NormalTok{width }\OperatorTok{=} \FloatTok{0.5}
+
+\NormalTok{time\_interval}\OperatorTok{=}\DecValTok{100}
+\NormalTok{points}\OperatorTok{=}\DecValTok{50}
+\NormalTok{tlist }\OperatorTok{=}\NormalTok{ np.linspace(}\DecValTok{0}\NormalTok{, time\_interval, points)}
+
+\CommentTok{\#rotating wave approximation}
+\NormalTok{use\_rwa}\OperatorTok{=} \VariableTok{False}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{value-of-g-used}{%
+\subsection{Value of g used}\label{value-of-g-used}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{g}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+0.06283185307179587
+\end{verbatim}
+
+\hypertarget{operators}{%
+\subsection{Operators}\label{operators}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{sm1 }\OperatorTok{=}\NormalTok{ tensor(destroy(}\DecValTok{2}\NormalTok{), qeye(}\DecValTok{2}\NormalTok{))}
+
+\NormalTok{sz1 }\OperatorTok{=}\NormalTok{ tensor(sigmaz(), qeye(}\DecValTok{2}\NormalTok{))}
+\NormalTok{sy1 }\OperatorTok{=}\NormalTok{ tensor(sigmay(), qeye(}\DecValTok{2}\NormalTok{))}
+\NormalTok{sx1 }\OperatorTok{=}\NormalTok{ tensor(sigmax(), qeye(}\DecValTok{2}\NormalTok{))}
+\NormalTok{n1 }\OperatorTok{=}\NormalTok{ sm1.dag() }\OperatorTok{*}\NormalTok{ sm1}
+
+\CommentTok{\# operators for qubit 2}
+\NormalTok{sm2 }\OperatorTok{=}\NormalTok{ tensor(qeye(}\DecValTok{2}\NormalTok{), destroy(}\DecValTok{2}\NormalTok{))}
+
+\NormalTok{sz2 }\OperatorTok{=}\NormalTok{ tensor(qeye(}\DecValTok{2}\NormalTok{), sigmaz())}
+\NormalTok{sy2 }\OperatorTok{=}\NormalTok{ tensor(qeye(}\DecValTok{2}\NormalTok{), sigmay())}
+\NormalTok{sx2 }\OperatorTok{=}\NormalTok{ tensor(qeye(}\DecValTok{2}\NormalTok{), sigmax())}
+\NormalTok{n2 }\OperatorTok{=}\NormalTok{ sm2.dag() }\OperatorTok{*}\NormalTok{ sm2}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{hamiltonian}{%
+\subsection{Hamiltonian}\label{hamiltonian}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Hamiltonian using QuTiP}
+
+\CommentTok{\#qubits}
+\NormalTok{H1 }\OperatorTok{=} \OperatorTok{{-}} \FloatTok{0.5} \OperatorTok{*}\NormalTok{ sz1 }\OperatorTok{*}\NormalTok{ w1}
+\NormalTok{H2 }\OperatorTok{=} \OperatorTok{{-}} \FloatTok{0.5} \OperatorTok{*}\NormalTok{ sz2 }\OperatorTok{*}\NormalTok{ w2}
+
+\CommentTok{\#Qubit coupling hamiltonian}
+\CommentTok{\# Hamiltonian}
+\ControlFlowTok{if}\NormalTok{ use\_rwa:}
+\NormalTok{    Hqq }\OperatorTok{=} \OperatorTok{{-}}\NormalTok{g}\OperatorTok{/}\DecValTok{2} \OperatorTok{*}\NormalTok{ (sx1}\OperatorTok{*}\NormalTok{sx2}\OperatorTok{+}\NormalTok{sy1}\OperatorTok{*}\NormalTok{xy2)}
+\ControlFlowTok{else}\NormalTok{:}
+\NormalTok{    Hqq }\OperatorTok{=} \OperatorTok{{-}}\NormalTok{g }\OperatorTok{*}\NormalTok{ (sm1.dag() }\OperatorTok{{-}}\NormalTok{ sm1) }\OperatorTok{*}\NormalTok{ ( sm2.dag()}\OperatorTok{{-}}\NormalTok{sm2)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\#unitary step function}
+\KeywordTok{def}\NormalTok{ u\_t(t):}
+    \ControlFlowTok{return} \DecValTok{1}\OperatorTok{*}\NormalTok{(t }\OperatorTok{\textgreater{}} \DecValTok{0}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{def}\NormalTok{ simulate(T0,T\_gate,w,tlist):}
+
+\NormalTok{    start }\OperatorTok{=}\NormalTok{ timeit.default\_timer()}
+
+    \CommentTok{\#Your statements here}
+
+\NormalTok{    psi }\OperatorTok{=}\NormalTok{ tensor(basis(}\DecValTok{2}\NormalTok{,}\DecValTok{1}\NormalTok{),basis(}\DecValTok{2}\NormalTok{,}\DecValTok{0}\NormalTok{))}
+
+    \KeywordTok{def}\NormalTok{ w1\_t(t, args}\OperatorTok{=}\VariableTok{None}\NormalTok{):}
+                    \ControlFlowTok{return} \DecValTok{1} \OperatorTok{+}\NormalTok{ (w}\OperatorTok{/}\NormalTok{w1}\OperatorTok{{-}}\DecValTok{1}\NormalTok{)}\OperatorTok{*}\NormalTok{(u\_t(t}\OperatorTok{{-}}\NormalTok{T0)}\OperatorTok{{-}}\NormalTok{u\_t(t}\OperatorTok{{-}}\NormalTok{T0}\OperatorTok{{-}}\NormalTok{T\_gate))}
+
+    \CommentTok{\#This will multiply H1 and H2 by the time dependant step functions like w1\_t during the mesolve step}
+\NormalTok{    H\_t }\OperatorTok{=}\NormalTok{ [ [H1, w1\_t], H2}\OperatorTok{+}\NormalTok{Hqq]}
+    \CommentTok{\#result of the simulation with a list of state vectors}
+\NormalTok{    res }\OperatorTok{=}\NormalTok{ mesolve(H\_t, psi, tlist, [], [])}
+\NormalTok{    stop }\OperatorTok{=}\NormalTok{ timeit.default\_timer()}
+   \CommentTok{\# print(\textquotesingle{}Time: \textquotesingle{}, stop {-} start) }
+    \ControlFlowTok{return}\NormalTok{ res}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{def}\NormalTok{ graph\_simu(res):}
+\NormalTok{    fig, axes }\OperatorTok{=}\NormalTok{ plt.subplots(}\DecValTok{1}\NormalTok{, }\DecValTok{1}\NormalTok{, sharex}\OperatorTok{=}\VariableTok{True}\NormalTok{, figsize}\OperatorTok{=}\NormalTok{(}\DecValTok{10}\NormalTok{,}\DecValTok{4}\NormalTok{))}
+
+\NormalTok{    axes.plot(tlist, np.real(expect(n1, res.states)), }\StringTok{\textquotesingle{}b\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit 1"}\NormalTok{)}
+\NormalTok{    axes.plot(tlist, np.real(expect(n2, res.states)), }\StringTok{\textquotesingle{}g\textquotesingle{}}\NormalTok{, linewidth}\OperatorTok{=}\DecValTok{2}\NormalTok{, label}\OperatorTok{=}\StringTok{"qubit 2"}\NormalTok{)}
+\NormalTok{    axes.set\_ylim(}\DecValTok{0}\NormalTok{, }\DecValTok{1}\NormalTok{)}
+    \CommentTok{\#axes[1].set\_xlim(0,20)}
+
+\NormalTok{    axes.set\_xlabel(}\StringTok{"Time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{    axes.set\_ylabel(}\StringTok{"Occupation probability"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{    axes.legend()}
+
+
+\NormalTok{    fig.tight\_layout()}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{simulations-of-the-expected-value-for-both-qubits-when-qubit-1-is-approximated-to-the-qubit-2-frequency-at-various-intervals}{%
+\subsubsection{Simulations of the expected value for both qubits when
+qubit 1 is approximated to the qubit 2 frequency at various
+intervals.}\label{simulations-of-the-expected-value-for-both-qubits-when-qubit-1-is-approximated-to-the-qubit-2-frequency-at-various-intervals}}
+
+In real life we wouldn't be able to obtain these graphs easily because
+we'd need to measure the expected value by many measurements for each
+time in the x axis for both qubits. But since this is a simulation we
+can see than to better understand the system. Here I varied the energy
+of the qubit 1 around the w2 value of the energy of qubit 2. The further
+we go from it, the weaker is the swap/interaction. Positive and negative
+differences from the value of qubit 2 are symetrical.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.02499551698565483
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/d4fa7c884513a7de0eb25fa3260e7735e2af9c73.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2}\OperatorTok{+}\FloatTok{0.02}\NormalTok{,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.02205941453576088
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/25687704df8d0a03e4c75bec90ac57c4eda399a2.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2}\OperatorTok{+}\FloatTok{0.04}\NormalTok{,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.021794598549604416
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/bcb665f3b4a93d037822fee76bb6317dd590223a.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2}\OperatorTok{{-}}\FloatTok{0.04}\NormalTok{,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.02172275260090828
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/244fbe81897d807a2fda41641b7b9e4c01efad53.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2}\OperatorTok{+}\FloatTok{0.08}\NormalTok{,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.0216141939163208
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/2d8ef3737b69f831bf32ad474a15ca1cbe0f8737.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2}\OperatorTok{{-}}\FloatTok{0.08}\NormalTok{,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.022494543343782425
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/ba0255d4ecacbb32291355039ef9c692c60fd01d.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2}\OperatorTok{+}\FloatTok{0.2}\NormalTok{,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.023160740733146667
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/5a0d6ce9d01bfee55888733e5b3b66f7dd40b013.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2}\OperatorTok{+}\FloatTok{0.3}\NormalTok{,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.023189201951026917
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/0f657fefba52ac746d7638e8e7e30a4f952581f2.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2}\OperatorTok{+}\FloatTok{0.5}\NormalTok{,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.024360783398151398
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/4a3c7c2b9cc52d17c73af9ba0f260362b80164f7.png}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{graph\_simu(simulate(}\DecValTok{10}\NormalTok{,}\DecValTok{80}\NormalTok{,w2}\OperatorTok{+}\DecValTok{2}\NormalTok{,tlist))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+Time:  0.02978280931711197
+\end{verbatim}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/ba139b171b68e5c0ee4702af5490c70c714fee08.png}
+
+\hypertarget{mapping-of-the-interaction}{%
+\subsection{Mapping of the
+interaction}\label{mapping-of-the-interaction}}
+
+Here we will finally map the energies and the time intervals we applied
+the change in energy and produce a graph to visualize it. Then we will
+estimate the value of g from the graph.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\KeywordTok{def}\NormalTok{ measure(expected):}
+    \ControlFlowTok{if}\NormalTok{ np.random.random()}\OperatorTok{\textless{}=}\NormalTok{expected:}
+        \ControlFlowTok{return} \DecValTok{1}
+    \ControlFlowTok{else}\NormalTok{: }
+        \ControlFlowTok{return} \DecValTok{0}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+
+\NormalTok{time\_interval}\OperatorTok{=}\DecValTok{100}
+\NormalTok{points}\OperatorTok{=}\DecValTok{50}
+\NormalTok{pntperns}\OperatorTok{=}\NormalTok{ceil(points}\OperatorTok{/}\NormalTok{time\_interval)}
+
+\NormalTok{intervals }\OperatorTok{=}\NormalTok{ np.linspace(}\DecValTok{1}\NormalTok{, time\_interval, ceil(points}\OperatorTok{/}\DecValTok{2}\NormalTok{))}
+\NormalTok{energies }\OperatorTok{=}\NormalTok{ np.linspace(w2}\OperatorTok{{-}}\DecValTok{2}\NormalTok{,w2}\OperatorTok{+}\DecValTok{2}\NormalTok{ , ceil(points}\OperatorTok{/}\DecValTok{2}\NormalTok{))}
+
+\NormalTok{measurements}\OperatorTok{=}\DecValTok{20}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{matrix}\OperatorTok{=}\NormalTok{[]}
+\ControlFlowTok{for}\NormalTok{ w }\KeywordTok{in}\NormalTok{ energies:}
+\NormalTok{    vector\_times}\OperatorTok{=}\NormalTok{[]}
+    \ControlFlowTok{for}\NormalTok{ T\_gate }\KeywordTok{in}\NormalTok{ intervals:}
+\NormalTok{        average}\OperatorTok{=}\DecValTok{0}
+        \ControlFlowTok{for}\NormalTok{ i }\KeywordTok{in} \BuiltInTok{range}\NormalTok{(measurements):}
+
+            \CommentTok{\#shrinks simulation for efficiency}
+\NormalTok{            times }\OperatorTok{=}\NormalTok{ np.linspace(}\DecValTok{0}\NormalTok{, T\_gate, points)}
+            
+            \CommentTok{\#Measure last value in the simulation and add to average}
+\NormalTok{            res}\OperatorTok{=}\NormalTok{simulate(}\DecValTok{0}\NormalTok{,T\_gate,w,times)}
+\NormalTok{            result}\OperatorTok{=}\NormalTok{measure((expect(n2, res.states[}\OperatorTok{{-}}\DecValTok{1}\NormalTok{])))}
+
+\NormalTok{            average}\OperatorTok{+=}\NormalTok{result}
+            
+        \CommentTok{\#makes a vector of the probabilities obtained for each time interval    }
+\NormalTok{        vector\_times.append(average}\OperatorTok{/}\NormalTok{measurements)}
+        
+    \CommentTok{\#makes a matrix with the vectors of time intervals\textquotesingle{} probabilies for each flux}
+\NormalTok{    matrix.append(vector\_times)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Z }\OperatorTok{=}\NormalTok{ np.array(matrix).T.tolist()}
+\NormalTok{y }\OperatorTok{=}\NormalTok{ intervals}
+\NormalTok{x }\OperatorTok{=}\NormalTok{  energies }
+
+\NormalTok{fig, ax }\OperatorTok{=}\NormalTok{ plt.subplots()}
+\NormalTok{im}\OperatorTok{=}\NormalTok{ax.pcolormesh(x, y, Z)}
+
+\NormalTok{ax.set\_xlabel(}\StringTok{"Angular frequency"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+\NormalTok{ax.set\_ylabel(}\StringTok{"Interval time (ns)"}\NormalTok{, fontsize}\OperatorTok{=}\DecValTok{16}\NormalTok{)}
+
+\NormalTok{fig.colorbar(im, ax}\OperatorTok{=}\NormalTok{ax)}
+\NormalTok{plt.show()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{vertopal_f5172bfde39a47c098165efd46e6cd2d/74e570a5c724da1596deb5d199d111ec011fb264.png}
+
+Looking at the graph and given that the period of the iSWAP gate (where
+the probability peaks) is \(\frac{\pi}{2g}\) we get roughly that
+
+\[g=\frac{\pi}{2t_{peak}} = \frac{\pi}{2\cdot30}=0.05236\]
+
+Which given the real g used in the simulation and that the resolution we
+used is very low:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{g}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+0.06283185307179587
+\end{verbatim}
+
+It is a good result for our didactical goals. Although for a real
+calibration it wouldn't really be appropriate.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+
+\end{Highlighting}
+\end{Shaded}
+
+

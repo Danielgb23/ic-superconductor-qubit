@@ -7,6 +7,7 @@
 \usepackage{ amsmath, amssymb }
 \usepackage{xcolor}
 \usepackage{graphicx}
+\usepackage{pdfpages}
 \usepackage{wrapfig}
 \usepackage{array,graphicx,dcolumn,multirow,hevea,abstract,hanging,fancyhdr,float}
 % change next 3 lines each issue
@@ -14,7 +15,7 @@
 \topmargin=-.3in \oddsidemargin=.3in \evensidemargin=.3in \textheight=9in \textwidth=6in
 \pagestyle{fancy} 
 \fancyhead[L]{\protect\small \href{\jref}{\jhead}, \date{\today}}
-\fancyhead[R]{\protect\small SHORT TITLE} % replace with running head
+\fancyhead[R]{\protect\small  A STUDY OF SUPERCONDUCTING CIRCUITS FOR QUANTUM COMPUTING} % replace with running head
 \fancypagestyle{firstpage}{%
  \lhead{\protect\small \href{\jref}{\jhead} \date{\today}}
  \rhead{}
@@ -82,27 +83,28 @@
 \thispagestyle{empty}
 
 \newcommand\ask[1]{
-{\color{red}
-#1
+{%\color{red}
+%#1
 }
 }
 
 \newcommand\page[1]{
 {
-\color{blue}\paragraph{
-Page #1
-}\mbox{}\\
+%\color{blue}\paragraph{
+%Page #1
+%}\mbox{}\\
 }
 }
 
 \date{} % leave empty
-
+\input notebooks-preamble.tex
 \begin{document} % goes here
 
 \setcounter{page}{1} % start with first page
 \thispagestyle{firstpage}
+
 \begin{wrapfigure}[2]{l}{7cm}
-\includegraphics[scale=0.111]{logo-documentos.png}
+\includegraphics[width=6cm]{logo-documentos.png}
 \end{wrapfigure}
 
 
@@ -1622,27 +1624,162 @@ On the other hand a drive at the qubit frequency is so far detuned from the cavi
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Continuation}
-The work will be continued by studying the work of Girvin about superconducting Qubits on the sections following the already explored in this report: 
-\begin{itemize}
-    \item Chapter 4: Superconducting Qubits
-    \item Chapter 6: Introduction to Cavity and Circuit QED
-\end{itemize}
-The following sections will just be briefly studied by the student without their addition to the report:
+\section{Qutip Jupyter notebook with a CNOT gate made of iSWAPs}
+This section is a jupyter notebook that can be found on Github
+\textcolor{blue}{\underline{\hyperlink{https://github.com/Danielgb23/ic-superconductor-qubit/blob/master/2-qubit-gates.ipynb}{(link)}}}
+that simulates using Qutip a cavity plus two qubits system. That is controlled to do a series of one gate and two gates operations to obtain the equivalent of applying a CNOT gate plus some one qubit gate operations. Described with better details on the notebook:
+
+References quoted in this notebook are Krantz's A quantum engineer’s guide to superconducting qubits \cite{2019krantz} and Wolfowicz's Pulse Techniques for Quantum Information Processing \cite{Wolfowicz2016PulseProcessing}.
+\input notebook1-2-qubits.latex
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Qutip Jupyter notebook to find the interaction factor between two qubits}
+This section is a jupyter notebook that can be found on Github
+\textcolor{blue}{\underline{\hyperlink{https://github.com/Danielgb23/ic-superconductor-qubit/blob/master/2-qubit-gates.ipynb }{(link)}}}
+
+Here we simulate two qubits and vary the frequency of one of them to measure the amount of interaction it has with one another. In this case with a iSWAP gate like used before. Then we vary the time they interact and conduct a measurement from whose period of variation of the state transfer we can find $g$ the interaction factor. This is supposed to emulate a common process of calibration of this factor in a real quantum computer.
+
+\input notebook2-finding-g.latex
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Qutip Jupyter notebook to simulate a measurement}
+This section is a jupyter notebook that can be found on Github
+\textcolor{blue}{\underline{\hyperlink{https://github.com/Danielgb23/ic-superconductor-qubit/blob/master/2-qubit-gates.ipynb}{(link)}}}
+In the last notebook of the simulations we emulate the process of conducing a measurement through a cavity. For that we drive the cavity with a cosine wave and read the reflected/transmitted back wave with the $a$ operator expected value for the cavity. Different states of the qubit will result in waves with different frequency as explained further in the notebook.
+\input notebook3-measurement.latex
+
+\section{Building quantum chips with Qiskit Metal}
+Using the tool from IBM, qiskit metal. I studied and modified two notebooks available from IBM tutorials:
 
 \begin{itemize}
-    \item Chapter 5: Noise induced decoherence
-    \item Chapter 7: Quantum Measurement in circuit QED
+
+\item {\color{blue}\href{https://github.com/Qiskit/qiskit-metal/blob/main/tutorials/2%20From%20components%20to%20chip/C.%20My%20first%20full%20quantum%20chip%20design/2.21%20Design%20a%204%20qubit%20full%20chip.ipynb}{Design a 4 qubit full chip}}
+
+%
+\item {\color{blue}\href{https://qiskit.org/documentation/metal/circuit-examples/D.Qubit-couplers/31-TwoCrossmonsTunableCoupler.html}{Two Crossmons Tunable Coupler}}
+
+
 \end{itemize}
+Creating with these two tutorials a notebook for two transmon qubits coupled by a {\color{blue}\href{https://github.com/Danielgb23/ic-superconductor-qubit/blob/master/Design%20a%202%20qubit%20full%20chip.ipynb}{cavity}}
+and another notebook for the transmons coupled by {\color{blue} \href{https://github.com/Danielgb23/ic-superconductor-qubit/blob/master/TwoTransmonsTunableCoupler.ipynb}{a coupler qubit}}. The first notebook was made by editing the "Design a 4 qubit full chip" tutorial to have only 2 qubits. So some parts where deleted and others rearranged in the code. The second notebook I made to generate the second chip is a mashup of both tutorials. I removed the crossmons which are another type of qubit and added two regular transmons in their place leaving the coupling qubit and rearranging it's position a little. Then using the knowledge of the first tutorial I added the launchpads and the connections between them and the transmons so the qubits can be controlled/measured.
 
-In the second part of the project we will start the simulation of the developed circuits, based on the acquired knowledge in the previous steps. Summarized, to study the system's dynamic interacting with it's environment we will use the Lindblad equation. The simulations will be made with tools develop by the group and numerical simulation tools.
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.6]{images/metal-2qubits-cavity.png}
+\caption{Chip of two transmon qubits coupled by a cavity}
+\label{metal-cavity}
+\end{figure}
 
-Then we will do the Rabi measurements on the simulated system that describe the decay of the qubit to unusable states and thus its deterioration. Decay to the ground state from the excited state, relaxation ($T_1$) and the time for a state in superposition to go to a non-superposition state, dephasing ($T_2$).
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.6]{images/metal-schematic-cavity.png}
+\caption{Schematic of the chip of two transmon qubits coupled by a cavity}
+\label{metal-schematic-cavity}
+\end{figure}
 
-The third part is implementing the circuit in the IBM's tool called qiskit metal. Which has premade parts of a superconducting circuit that can be assembled simulated extracting data like the Hamiltonian of the system, dissipation and non-harmonicity.
 
-Finally the circuit developed in qiskit metal will be simulated in electromagnetic simulators by numerical methods using the Maxwell equations for discreet regions of spaced named meshes. Getting numerical solutions to the electrical and magnetic fields for systems with complex geometries such as this one.
+\begin{figure}[h]
+\centering
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{images/metal-graph-cavity.png}
+\caption{Illustrative graph of the energies of the qubits in function of the magnetic flux for two variable  qubits and a fixed cavity}
+\label{metal-graph-cavity}
+\end{figure}
 
+
+The qubits coupled by the cavity (chip created in figure \ref{metal-cavity} and schematic in figure \ref{metal-schematic-cavity}). And will  change their energy according to the magnetic flux that is generated with a coil over the chip while the cavity doesn't change (figure \ref{metal-graph-cavity}). The qubits can be made to vary with the magnetic flux by having a double Josephson junction both in parallel. When the energy of the qubits is the same as the cavity they enter into a resonance that will allow us to use two qubit gates like the iSWAP. The energy of the qubits depends on many parameters such as the capacitance, the Josephson junction and the resistance in the junction. That way we can tune each qubit to have different behaviors.
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.6]{images/metal-coupler.png}
+\caption{Chip of two transmon qubits coupled by a third coupler qubit(with a close up to the right)}
+\label{metal-coupler}
+\end{figure}
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[scale=0.6]{images/metal-schematic-coupler.png}
+\caption{Schematic of the chip of two transmon qubits coupled by a third coupler qubit}
+\label{metal-schematic-coupler}
+\end{figure}
+
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{images/metal-graph-coupler-qubit.png}
+\caption{Illustrative graph of the energies of the qubits in function of the magnetic flux for two fixed qubits and a third variable coupler qubit}
+\label{metal-graph-coupler}
+\end{figure}
+
+
+
+The qubits coupled by another qubit (figure \ref{metal-coupler} schematic in figure \ref{metal-schematic-coupler}) have a qubit between them that can have his energy adjusted by the magnetic flux. In that case we can bring the coupler qubit in and out of resonance with either qubit to do the 2 qubit gates like in figure \ref{metal-graph-coupler}. In our chips this might not make a lot of difference. But for multiple qubits this can make it easier to pick the qubits that we want to put into resonance with each other or not put.
+
+\clearpage
+
+\section{CST electromagnetic simulation of a quantum chip}
+Here the circuit built in qiskit metal (figure \ref{metal-cavity}) will be simulated in electromagnetic simulators by numerical methods using the Maxwell equations for discreet regions of spaced named meshes. Getting numerical solutions to the electrical and magnetic fields for systems with complex geometries such as this one. The chosen simulator software is \textbf{CST} and the circuit used is exported from qiskit metal in the format GDS. 
+
+The goal was finding the resonance frequency of the cavity between the two qubits. So it was edited in Klayout to cut out some parts of the circuit and leave only the relevant part in. Then it was imported in CST as a $1\mu m$ thick perfect electro conductor with a subtract of silicon under it (figure \ref{cst-component}). 
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{images/cst-component.png}
+\caption{3D model of the circuit for the simulation}
+\label{cst-component}
+\end{figure}
+
+The signal input was placed at a plate of one transmon qubit and the output at the plate of the other qubit. And the simulation was run for many frequencies in the interval 0-20GHz. We can see the field monitor for 4GHz, figure \ref{cst-efield4}, and 7Ghz, figure \ref{cst-efield7}. 
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{images/cst-efield4.png}
+\caption{Colored graph of the electric field intensity for a input frequency of 4GHz}
+\label{cst-efield4}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{images/cst-efield7.png}
+\caption{Colored graph of the electric field intensity for a input frequency of 7GHz}
+\label{cst-efield7}
+\end{figure}
+
+And finally we can get the resonance frequency by observing the graph of the output of the circuit in the frequency domain (figure \ref{cst-freq}). We can see the first resonance at around 6.5Ghz and another big one at 7.2-7.5Ghz followed by one at around 11Hz. 
+
+The wire of the cavity has 9000$\mu$ of length and along with other specifications such as the thickness of the material deposited in the plate the calculated resonance frequency was 6.627GHz using a spreadsheet for circuit design available in the laboratory. Which is not far from the the first small resonance we see in figure \ref{cst-freq}. This resonance is used in the process of controlling the qubits in the quantum chip bring bringing them either in our out of resonance with the cavity for a iSWAP gate with the cavity for example.
+
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=\maxwidth,height=\maxheight,keepaspectratio]{images/cst-freq-domain.png}
+\caption{Graph in the frequency domain of the amplitude of the signal between the two plates of different transmon qubits connected through a cavity.}
+\label{cst-freq}
+\end{figure}
+
+\section{Conclusion}
+The beginning of the project was more of a directed study of the basis of superconducting qubit. Going from the properties of the superconductor itself to the Josephson junction and the circuits using it. Here I was able to get a good grasp of the manner in which the superconductor qubits really work from the ground up. 
+
+Different from my previous project of scientific initiation where the qubit was assumed to just work. I got to expand basic knowledge of quantum mechanics such as the quantum harmonic oscillator (cavity) with new notions such as non-linearity from the Josephson junction or driven cavities and resonators.
+
+Then in the second part I used this knowledge to build simulations of the quantum circuits using their Hamiltonians. And do some more complex quantum computing operations with them such as a CNOT gate using two coupled qubits. For this part I had to develop better the knowledge of driving qubits with a signal. For which I used a different reference from the used in the beginning  \cite{2019krantz}. 
+
+I also simulated the process of calibration of a coupling constant and the simulation of a measurement. This added to the feel of how it would be working with a real superconducting qubit in a laboratory. How it would be controlling it and getting output.
+
+To finish the project I used a new tool by IBM called qiskit metal to design a superconducting chip. And then simulated part of it (the cavity between the qubits) in CST. Which was a bit difficult because CST requires one to know a lot of little tricks for it to work properly which requires experience. But I was still able to get a good simulation with the resonance frequency of the cavity visible.
+
+Following the project I am going now beginning in August on an exchange program to France at Paristech ESPCI to get a double diploma in engineering. Hopefully to also continue my studies in the subject of superconducting quantum computing and get a Masters degree along with the bachelor diploma.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%\section{Continuation}
+
+%Then we will do the Rabi measurements on the simulated system that describe the decay of the qubit to unusable states and thus its deterioration. Decay to the ground state from the excited state, relaxation ($T_1$) and the time for a state in superposition to go to a non-superposition state, dephasing ($T_2$).
+
+%The third part is implementing the circuit in the IBM's tool called qiskit metal. Which has premade parts of a superconducting circuit that can be assembled simulated extracting data like the Hamiltonian of the system, dissipation and non-harmonicity.
+
+%Finally the circuit developed in qiskit metal will be simulated in electromagnetic simulators by numerical methods using the Maxwell equations for discreet regions of spaced named meshes. Getting numerical solutions to the electrical and magnetic fields for systems with complex geometries such as this one.
+\clearpage
 
 \printbibliography
 
